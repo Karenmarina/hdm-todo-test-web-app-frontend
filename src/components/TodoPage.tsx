@@ -15,43 +15,72 @@ import useFetch from "../hooks/useFetch.ts";
 import { Task } from "../index";
 
 const TodoPage = () => {
-  const api = useFetch();
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const api = useFetch(); // Hook pour les appels API
+  const [tasks, setTasks] = useState<Task[]>([]); // État des tâches
   const [newTaskName, setNewTaskName] = useState<string>(""); // État pour la nouvelle tâche
+  const [errorMessage, setErrorMessage] = useState(""); //État pour le message d'erreur
 
-  const handleFetchTasks = async () => setTasks(await api.get("/tasks"));
-
-  const handleDelete = async (id: number) => {
-    // @todo IMPLEMENT HERE : DELETE THE TASK & REFRESH ALL THE TASKS, DON'T FORGET TO ATTACH THE FUNCTION TO THE APPROPRIATE BUTTON
-    await api.delete(`/tasks/${id}`);
-    console.log(`bouton cliqué, tâche ${id} supprimée`);
-    handleFetchTasks();
+  // Fonction pour récupérer toutes les tâches
+  const handleFetchTasks = async () => {
+    const fetchedTasks = await api.get("/tasks");
+    setTasks(fetchedTasks); // Mise à jour de l'état avec les tâches récupérées
   };
 
+  // Fonction pour supprimer une tâche
+  const handleDelete = async (id: number) => {
+    try {
+      await api.delete(`/tasks/${id}`);
+      setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id)); // Mise à jour locale
+      console.log(`Task ${id} supprimée`);
+    } catch (error) {
+      console.error(`Erreur lors de la suppression de la tâche ${id}`, error);
+    }
+  };
+
+  // Fonction pour enregistrer une nouvelle tâche
   const handleSave = async () => {
-    // @todo IMPLEMENT HERE : SAVE THE TASK & REFRESH ALL THE TASKS, DON'T FORGET TO ATTACH THE FUNCTION TO THE APPROPRIATE BUTTON
     if (newTaskName.length === 0) {
-      console.log("Le nom de la tâche ne peut pas être vide.");
+      setErrorMessage("Le nom de la tâche ne peut pas être vide.");
       return;
     }
 
-    //Sinon créer une nouvelle tâche
-    await api.post("/tasks", { name: newTaskName });
-    console.log(`bouton cliqué, tâche ${newTaskName} ajoutée`);
-    setNewTaskName(""); //Réinitialiser champ de saisie
-    handleFetchTasks(); //Réactualise la liste des tâches
+    try {
+      const newTask = await api.post("/tasks", { name: newTaskName });
+      setTasks((prevTasks) => [...prevTasks, newTask]); // Ajouter la nouvelle tâche localement
+      setNewTaskName(""); // Réinitialisation du champ de saisie
+      setErrorMessage(""); //Réinitialisation message erreur s'il n'y en a plus
+      console.log("Nouvelle tâche ajoutée :", newTask);
+    } catch (error) {
+      setErrorMessage(
+        "Une erreur est survenue lors de l'ajout de la nouvelle tâche"
+      );
+    }
   };
 
+  // Fonction pour modifier une tâche existante
   const handleEdit = async (id: number, updatedName: string) => {
-    await api.patch(`/tasks/${id}`, { name: updatedName });
-    console.log(`tâche ${id} ${updatedName} modifiée`);
-    handleFetchTasks();
+    try {
+      const updatedTask = await api.patch(`/tasks/${id}`, {
+        name: updatedName,
+      });
+
+      // Mettre à jour la tâche localement dans le tableau tasks
+      setTasks((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === id ? { ...task, name: updatedName } : task
+        )
+      );
+      console.log(`Tâche ${id} mise à jour :`, updatedTask);
+    } catch (error) {
+      setErrorMessage(
+        "Une erreur est survenue lors de la modification de la tâche"
+      );
+    }
   };
 
+  // Charger les tâches au premier rendu
   useEffect(() => {
-    (async () => {
-      handleFetchTasks();
-    })();
+    handleFetchTasks();
   }, []);
 
   return (
@@ -75,7 +104,7 @@ const TodoPage = () => {
               size="small"
               value={task.name}
               onChange={(e) => {
-                console.log("TARGET", e.target);
+                console.log("TARGET", e.target.value);
                 handleEdit(task.id, e.target.value);
               }} // Met à jour la tâche directement
               fullWidth
